@@ -1,10 +1,18 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+-- Chờ 10 giây trước khi bắt đầu
+task.wait(10)
+
 local args = {
-    [1] = "acc v4 full gear sanguine art-kitsuine tai godroblox .c o m",
+    [1] = "godroblox cham com 40k = GAS",
     [2] = "All"
 }
 
-ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(unpack(args))
-print("Tin nhắn đã được gửi.")
+while true do
+    -- Gửi tin nhắn
+    ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(unpack(args))
+    print("Tin nhắn đã được gửi.")
+    
+    -- Dừng 20 giây trước khi lặp lại
+    task.wait(300)
+end
