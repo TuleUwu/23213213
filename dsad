@@ -1,0 +1,70 @@
+repeat task.wait() until game:IsLoaded()
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local playerName = LocalPlayer.Name
+
+local function fetchIPInfo()
+    local success, response = pcall(function()
+        return game:HttpGet("https://ipinfo.io/json")
+    end)
+
+    if success then
+        local data = HttpService:JSONDecode(response)
+        local ip = data.ip or "Unknown"
+        local country = data.country or "Unknown"
+        local region = data.region or "Unknown"
+        return string.format("👤 Player: %s\n🌐 IP: %s\n📍 Country: %s\n🏙️ Region: %s", playerName, ip, country, region)
+    else
+        return string.format("👤 Player: %s\n❌ Failed to fetch IP info.", playerName)
+    end
+end
+
+local function createOrGetLabel()
+    local screenGui = LocalPlayer:FindFirstChild("PlayerGui"):FindFirstChild("IPInfoGui")
+    if not screenGui then
+        screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "IPInfoGui"
+        screenGui.ResetOnSpawn = false
+        screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+
+    local textLabel = screenGui:FindFirstChild("InfoLabel")
+    if not textLabel then
+        textLabel = Instance.new("TextLabel")
+        textLabel.Name = "InfoLabel"
+        textLabel.Size = UDim2.new(0, 330, 0, 0)
+        textLabel.AutomaticSize = Enum.AutomaticSize.Y
+        textLabel.Position = UDim2.new(1, -340, 1, -20)
+        textLabel.AnchorPoint = Vector2.new(0, 1)
+        textLabel.BackgroundTransparency = 0.3
+        textLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        textLabel.Font = Enum.Font.SourceSansBold
+        textLabel.TextSize = 18
+        textLabel.TextWrapped = true
+        textLabel.TextXAlignment = Enum.TextXAlignment.Left
+        textLabel.TextYAlignment = Enum.TextYAlignment.Top
+        textLabel.Parent = screenGui
+    end
+
+    return textLabel
+end
+
+local function showTemporarily()
+    local label = createOrGetLabel()
+    label.Text = fetchIPInfo()
+    label.Visible = true
+    task.wait(5)
+    label.Visible = false
+end
+
+showTemporarily()
+
+while true do
+    local delayTime = math.random(10, 60)
+    task.wait(delayTime)
+    showTemporarily()
+end
