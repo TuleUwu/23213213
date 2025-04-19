@@ -1,0 +1,456 @@
+--[[
+    Blox Fruits Minimal UI Auto Friend
+    UI đơn giản, đẹp mắt với auto friend liên tục
+]]
+
+-- Services
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Constants
+local FRIEND_DELAY = 1.2 -- Thời gian giữa mỗi lần gửi kết bạn (giây)
+local CHECK_INTERVAL = 5 -- Thời gian kiểm tra lại (giây)
+
+-- Variables
+local totalSent = 0
+local totalSuccess = 0
+local totalFailed = 0
+local alreadyFriends = 0
+local processedPlayers = {}
+local isRunning = true
+
+-- Create Minimal UI
+local function createMinimalUI()
+    -- Screen GUI
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "MinimalAutoFriendGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = game:GetService("CoreGui")
+    
+    -- Main Container
+    local mainContainer = Instance.new("Frame")
+    mainContainer.Name = "MainContainer"
+    mainContainer.Size = UDim2.new(0, 220, 0, 140)
+    mainContainer.Position = UDim2.new(0.99, -230, 0.1, 0)
+    mainContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
+    mainContainer.BorderSizePixel = 0
+    mainContainer.Active = true
+    mainContainer.Draggable = true
+    mainContainer.Parent = screenGui
+    
+    -- Corner Radius
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 8)
+    uiCorner.Parent = mainContainer
+    
+    -- Shadow Effect
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.BackgroundTransparency = 1
+    shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    shadow.Size = UDim2.new(1, 25, 1, 25)
+    shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    shadow.Image = "rbxassetid://6014054481"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.5
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(80, 80, 420, 420)
+    shadow.SliceScale = 1
+    shadow.ZIndex = -1
+    shadow.Parent = mainContainer
+    
+    -- Header
+    local header = Instance.new("Frame")
+    header.Name = "Header"
+    header.Size = UDim2.new(1, 0, 0, 32)
+    header.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    header.BorderSizePixel = 0
+    header.Parent = mainContainer
+    
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, 8)
+    headerCorner.Parent = header
+    
+    -- Header fill (to fix corner radius)
+    local headerFill = Instance.new("Frame")
+    headerFill.Name = "HeaderFill"
+    headerFill.Size = UDim2.new(1, 0, 0, 10)
+    headerFill.Position = UDim2.new(0, 0, 1, -8)
+    headerFill.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    headerFill.BorderSizePixel = 0
+    headerFill.ZIndex = 0
+    headerFill.Parent = header
+    
+    -- Logo
+    local logo = Instance.new("ImageLabel")
+    logo.Name = "Logo"
+    logo.Size = UDim2.new(0, 20, 0, 20)
+    logo.Position = UDim2.new(0, 10, 0, 6)
+    logo.BackgroundTransparency = 1
+    logo.Image = "rbxassetid://9034159105" -- Friends icon
+    logo.ImageColor3 = Color3.fromRGB(80, 170, 255)
+    logo.Parent = header
+    
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.Size = UDim2.new(1, -80, 1, 0)
+    title.Position = UDim2.new(0, 40, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 14
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Text = "Auto Friend"
+    title.Parent = header
+    
+    -- Close Button
+    local closeButton = Instance.new("ImageButton")
+    closeButton.Name = "CloseButton"
+    closeButton.Size = UDim2.new(0, 20, 0, 20)
+    closeButton.Position = UDim2.new(1, -25, 0, 6)
+    closeButton.BackgroundTransparency = 1
+    closeButton.Image = "rbxassetid://9127547778" -- X icon
+    closeButton.ImageColor3 = Color3.fromRGB(200, 200, 200)
+    closeButton.Parent = header
+    
+    -- Status
+    local statusContainer = Instance.new("Frame")
+    statusContainer.Name = "StatusContainer"
+    statusContainer.Size = UDim2.new(1, -20, 0, 20)
+    statusContainer.Position = UDim2.new(0, 10, 0, 40)
+    statusContainer.BackgroundTransparency = 1
+    statusContainer.Parent = mainContainer
+    
+    local statusIndicator = Instance.new("Frame")
+    statusIndicator.Name = "StatusIndicator"
+    statusIndicator.Size = UDim2.new(0, 8, 0, 8)
+    statusIndicator.Position = UDim2.new(0, 0, 0.5, -4)
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(80, 220, 100)
+    statusIndicator.BorderSizePixel = 0
+    statusIndicator.Parent = statusContainer
+    
+    local statusCorner = Instance.new("UICorner")
+    statusCorner.CornerRadius = UDim.new(1, 0)
+    statusCorner.Parent = statusIndicator
+    
+    local statusText = Instance.new("TextLabel")
+    statusText.Name = "StatusText"
+    statusText.Size = UDim2.new(1, -15, 1, 0)
+    statusText.Position = UDim2.new(0, 15, 0, 0)
+    statusText.BackgroundTransparency = 1
+    statusText.Font = Enum.Font.Gotham
+    statusText.TextColor3 = Color3.fromRGB(220, 220, 220)
+    statusText.TextSize = 12
+    statusText.TextXAlignment = Enum.TextXAlignment.Left
+    statusText.Text = "Đang kết bạn..."
+    statusText.Parent = statusContainer
+    
+    -- Stats Container
+    local statsContainer = Instance.new("Frame")
+    statsContainer.Name = "StatsContainer"
+    statsContainer.Size = UDim2.new(1, -20, 0, 70)
+    statsContainer.Position = UDim2.new(0, 10, 0, 65)
+    statsContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    statsContainer.BorderSizePixel = 0
+    statsContainer.Parent = mainContainer
+    
+    local statsCorner = Instance.new("UICorner")
+    statsCorner.CornerRadius = UDim.new(0, 8)
+    statsCorner.Parent = statsContainer
+    
+    -- Stats Items
+    local createStatItem = function(position, icon, text, color)
+        local statItem = Instance.new("Frame")
+        statItem.Name = text .. "Item"
+        statItem.Size = UDim2.new(0.5, -5, 0, 25)
+        statItem.Position = position
+        statItem.BackgroundTransparency = 1
+        statItem.Parent = statsContainer
+        
+        local iconLabel = Instance.new("ImageLabel")
+        iconLabel.Name = "Icon"
+        iconLabel.Size = UDim2.new(0, 16, 0, 16)
+        iconLabel.Position = UDim2.new(0, 5, 0.5, -8)
+        iconLabel.BackgroundTransparency = 1
+        iconLabel.Image = icon
+        iconLabel.ImageColor3 = color
+        iconLabel.Parent = statItem
+        
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Name = "Text"
+        textLabel.Size = UDim2.new(1, -25, 1, 0)
+        textLabel.Position = UDim2.new(0, 25, 0, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.Font = Enum.Font.Gotham
+        textLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+        textLabel.TextSize = 12
+        textLabel.TextXAlignment = Enum.TextXAlignment.Left
+        textLabel.Text = text .. ": 0"
+        textLabel.Parent = statItem
+        
+        return textLabel
+    end
+    
+    -- Create stats
+    local successText = createStatItem(
+        UDim2.new(0, 5, 0, 5),
+        "rbxassetid://9073722613", -- Checkmark
+        "Thành công",
+        Color3.fromRGB(80, 220, 100)
+    )
+    
+    local failedText = createStatItem(
+        UDim2.new(0.5, 0, 0, 5),
+        "rbxassetid://9072448788", -- X mark
+        "Thất bại",
+        Color3.fromRGB(255, 80, 80)
+    )
+    
+    local friendsText = createStatItem(
+        UDim2.new(0, 5, 0, 35),
+        "rbxassetid://9034159105", -- Friends
+        "Đã là bạn",
+        Color3.fromRGB(255, 200, 80)
+    )
+    
+    local playersText = createStatItem(
+        UDim2.new(0.5, 0, 0, 35),
+        "rbxassetid://9757362339", -- People
+        "Người chơi",
+        Color3.fromRGB(100, 180, 250)
+    )
+    
+    -- Return UI elements
+    return {
+        ScreenGui = screenGui,
+        MainContainer = mainContainer,
+        StatusIndicator = statusIndicator,
+        StatusText = statusText,
+        SuccessText = successText,
+        FailedText = failedText,
+        FriendsText = friendsText,
+        PlayersText = playersText,
+        CloseButton = closeButton
+    }
+end
+
+-- Check if player is already a friend
+local function isAlreadyFriend(player)
+    local success, result = pcall(function()
+        return player:IsFriendsWith(LocalPlayer.UserId)
+    end)
+    
+    return success and result
+end
+
+-- Send friend request with multiple methods
+local function sendFriendRequest(player, ui)
+    if player == LocalPlayer then
+        return false, "self"
+    end
+    
+    if processedPlayers[player.UserId] then
+        return false, "processed"
+    end
+    
+    -- Kiểm tra nếu đã là bạn bè
+    if isAlreadyFriend(player) then
+        processedPlayers[player.UserId] = "friend"
+        ui.StatusText.Text = "Đã là bạn: " .. player.Name
+        
+        -- Cập nhật số người đã là bạn
+        alreadyFriends = alreadyFriends + 1
+        ui.FriendsText.Text = "Đã là bạn: " .. alreadyFriends
+        
+        return false, "friend"
+    end
+    
+    ui.StatusText.Text = "Đang kết bạn: " .. player.Name
+    
+    local success = false
+    
+    -- Method 1: Using Players:RequestFriendship
+    local method1 = pcall(function()
+        game.Players:RequestFriendship(player)
+        return true
+    end)
+    
+    if method1 then success = true end
+    
+    -- Method 2: Using LocalPlayer:RequestFriendship
+    if not success then
+        local method2 = pcall(function()
+            LocalPlayer:RequestFriendship(player)
+            return true
+        end)
+        
+        if method2 then success = true end
+    end
+    
+    -- Method 3: Using SocialService
+    if not success and game:GetService("SocialService") then
+        local method3 = pcall(function()
+            game:GetService("SocialService"):RequestFriendship(LocalPlayer, player)
+            return true
+        end)
+        
+        if method3 then success = true end
+    end
+    
+    -- Method 4: Using StarterGui
+    if not success then
+        local method4 = pcall(function()
+            game:GetService("StarterGui"):SetCore("PromptRequestFriendship", player)
+            return true
+        end)
+        
+        if method4 then success = true end
+    end
+    
+    -- Đánh dấu là đã xử lý
+    processedPlayers[player.UserId] = success and "success" or "failed"
+    
+    -- Update UI and stats
+    totalSent = totalSent + 1
+    
+    if success then
+        totalSuccess = totalSuccess + 1
+        ui.SuccessText.Text = "Thành công: " .. totalSuccess
+        ui.StatusText.Text = "Thành công: " .. player.Name
+        
+        -- Flash effect for success
+        local originalSize = ui.SuccessText.TextSize
+        TweenService:Create(ui.SuccessText, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextSize = originalSize + 2}):Play()
+        wait(0.1)
+        TweenService:Create(ui.SuccessText, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextSize = originalSize}):Play()
+        
+        -- Pulse status indicator
+        local originalTransparency = ui.StatusIndicator.BackgroundTransparency
+        TweenService:Create(ui.StatusIndicator, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.5}):Play()
+        wait(0.1)
+        TweenService:Create(ui.StatusIndicator, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = originalTransparency}):Play()
+        
+        return true, "success"
+    else
+        totalFailed = totalFailed + 1
+        ui.FailedText.Text = "Thất bại: " .. totalFailed
+        ui.StatusText.Text = "Thất bại: " .. player.Name
+        
+        -- Flash effect for failure
+        local originalSize = ui.FailedText.TextSize
+        TweenService:Create(ui.FailedText, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextSize = originalSize + 2}):Play()
+        wait(0.1)
+        TweenService:Create(ui.FailedText, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextSize = originalSize}):Play()
+        
+        return false, "failed"
+    end
+end
+
+-- Process all current players
+local function processPlayers(ui)
+    local players = Players:GetPlayers()
+    local processed = 0
+    
+    ui.PlayersText.Text = "Người chơi: " .. #players
+    
+    -- Xử lý từng người chơi
+    for _, player in pairs(players) do
+        if not processedPlayers[player.UserId] then
+            local success, status = sendFriendRequest(player, ui)
+            processed = processed + 1
+            wait(FRIEND_DELAY)
+        end
+    end
+    
+    return processed
+end
+
+-- Continuous checking function
+local function continuousCheck(ui)
+    while isRunning do
+        local processed = processPlayers(ui)
+        
+        if processed == 0 then
+            ui.StatusText.Text = "Đang quét người chơi mới..."
+        end
+        
+        wait(CHECK_INTERVAL)
+    end
+end
+
+-- Main function
+local function main()
+    -- Create UI
+    local ui = createMinimalUI()
+    
+    -- Close button
+    ui.CloseButton.MouseEnter:Connect(function()
+        TweenService:Create(ui.CloseButton, TweenInfo.new(0.3), {ImageColor3 = Color3.fromRGB(255, 100, 100)}):Play()
+    end)
+    
+    ui.CloseButton.MouseLeave:Connect(function()
+        TweenService:Create(ui.CloseButton, TweenInfo.new(0.3), {ImageColor3 = Color3.fromRGB(200, 200, 200)}):Play()
+    end)
+    
+    ui.CloseButton.MouseButton1Click:Connect(function()
+        isRunning = false
+        
+        -- Closing animation
+        local closingTween = TweenService:Create(ui.MainContainer, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Position = UDim2.new(1.1, 0, 0.1, 0)})
+        closingTween:Play()
+        
+        closingTween.Completed:Connect(function()
+            ui.ScreenGui:Destroy()
+        end)
+    end)
+    
+    -- Player events
+    Players.PlayerAdded:Connect(function(player)
+        ui.PlayersText.Text = "Người chơi: " .. #Players:GetPlayers()
+        
+        if isRunning and not processedPlayers[player.UserId] then
+            wait(2) -- Wait a bit before processing new player
+            sendFriendRequest(player, ui)
+        end
+    end)
+    
+    Players.PlayerRemoving:Connect(function()
+        wait()
+        ui.PlayersText.Text = "Người chơi: " .. #Players:GetPlayers()
+    end)
+    
+    -- Add slide-in animation
+    ui.MainContainer.Position = UDim2.new(1.1, 0, 0.1, 0)
+    local tweenInfo = TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(ui.MainContainer, tweenInfo, {Position = UDim2.new(0.99, -230, 0.1, 0)})
+    tween:Play()
+    
+    -- Initialize first player count
+    ui.PlayersText.Text = "Người chơi: " .. #Players:GetPlayers()
+    
+    -- Animate status indicator
+    spawn(function()
+        while isRunning do
+            for i = 0, 1, 0.1 do
+                if not isRunning then break end
+                ui.StatusIndicator.BackgroundColor3 = Color3.fromHSV(i, 1, 1)
+                wait(0.5)
+            end
+        end
+    end)
+    
+    -- Start continuous checking
+    wait(0.5)
+    spawn(function()
+        continuousCheck(ui)
+    end)
+    
+    print("Auto Friend đã khởi chạy với UI tối giản!")
+end
+
+-- Run the script immediately
+main()
