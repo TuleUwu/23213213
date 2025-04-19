@@ -14,5 +14,5 @@ while true do
     print("Tin nhắn đã được gửi.")
     
     -- Dừng 20 giây trước khi lặp lại
-    task.wait(300)
+    task.wait(45)
 end
